@@ -8,8 +8,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/fs.h>
@@ -20,6 +18,7 @@
 #include "si4703_include.h"
 
 MODULE_LICENSE("GPL");
+
 static int major;
 
 static int si4703_probe(struct platform_device *pdev)
@@ -34,24 +33,23 @@ static int si4703_remove(struct platform_device *pdev)
 }
 
 
-static struct of_device_id my_dev_id[] = {
+static struct of_device_id si4703_dev_id[] = {
 	{
 		.compatible = DRIVER_NAME
 	},
 	{}
 };
 
-MODULE_DEVICE_TABLE(of,my_dev_id);
+MODULE_DEVICE_TABLE(of,si4703_dev_id);
 
 static struct platform_driver si4703_driver = {
 	.probe          = si4703_probe,
 	.remove         = si4703_remove,
 	.driver = {
 			.name  = DRIVER_NAME,
-			.of_match_table = my_dev_id,
+			.of_match_table = si4703_dev_id,
 	},
 };
-
 
 static long si4703_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {

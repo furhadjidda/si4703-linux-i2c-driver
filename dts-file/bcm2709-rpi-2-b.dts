@@ -50,6 +50,10 @@
 		      	compatible = "Sample_Pldrv";
         };
 
+        si4703_driver {
+		      	compatible = "si4703_driver";
+        };
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
