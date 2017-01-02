@@ -1,0 +1,171 @@
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
+#include <linux/delay.h>
+#include <linux/module.h>
+#include <linux/i2c.h>
+#include <linux/regmap.h>
+#include <linux/slab.h>
+
+#define DRV_NAME        "myclock"
+
+struct clk_myclock {
+    struct clk_hw hw;
+    struct regmap *regmap;
+    unsigned int div_offset;
+    u64 max_freq;
+    u64 fxtal;
+    unsigned int n1;
+    unsigned int hs_div;
+    u64 rfreq;
+    u64 frequency;
+    struct i2c_client *i2c_client;
+};
+#define to_clk_myclock(_hw) container_of(_hw, struct clk_myclock, hw)
+
+enum clk_myclock_variant {
+    myclock
+};
+
+static int myclock_set_rate(struct clk_hw *hw, unsigned long rate,
+        unsigned long parent_rate)
+{
+    struct clk_myclock *data = to_clk_myclock(hw);
+    data->frequency = rate;
+    return 0;
+}
+
+static unsigned long myclock_recalc_rate(struct clk_hw *hw,
+        unsigned long parent_rate)
+{
+    u64 rate;
+    struct clk_myclock *data = to_clk_myclock(hw);
+    rate = data->fxtal;
+    return rate;
+}
+
+static long myclock_round_rate(struct clk_hw *hw, unsigned long rate,
+        unsigned long *parent_rate)
+{
+    if (!rate)
+        return 0;
+    return rate;
+}
+
+static const struct clk_ops myclock_clk_ops = {
+    .recalc_rate = myclock_recalc_rate,
+    .round_rate = myclock_round_rate,
+    .set_rate = myclock_set_rate,
+};
+
+static bool myclock_regmap_is_volatile(struct device *dev, unsigned int reg)
+{
+    return false;
+}
+
+static bool myclock_regmap_is_writeable(struct device *dev, unsigned int reg)
+{
+    return true;
+}
+
+static const struct regmap_config myclock_regmap_config = {
+    .reg_bits = 8,
+    .val_bits = 8,
+    .cache_type = REGCACHE_RBTREE,
+    .max_register = 0xff,
+    .writeable_reg = myclock_regmap_is_writeable,
+    .volatile_reg = myclock_regmap_is_volatile,
+};
+
+
+static int myclock_probe(struct i2c_client *client,
+        const struct i2c_device_id *id)
+{
+    struct clk_myclock *data;
+    struct clk_init_data init;
+    struct clk *clk;
+    u32 initial_fout;
+    int err;
+
+    printk(KERN_ALERT "myclock_probe\n");
+    data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
+    if (!data)
+        return -ENOMEM;
+
+    init.ops = &myclock_clk_ops;
+    init.flags = CLK_IS_ROOT;
+    init.num_parents = 0;
+    data->hw.init = &init;
+    data->i2c_client = client;
+
+    init.name = "myclock";
+
+    data->regmap = devm_regmap_init_i2c(client, &myclock_regmap_config);
+    if (IS_ERR(data->regmap)) {
+        dev_err(&client->dev, "failed to allocate register map\n");
+        return PTR_ERR(data->regmap);
+    }
+
+    i2c_set_clientdata(client, data);
+
+    clk = devm_clk_register(&client->dev, &data->hw);
+    if (IS_ERR(clk)) {
+        dev_err(&client->dev, "clock registration failed\n");
+        return PTR_ERR(clk);
+    }
+    err = of_clk_add_provider(client->dev.of_node, of_clk_src_simple_get,
+            clk);
+    if (err) {
+        dev_err(&client->dev, "unable to add clk provider\n");
+        return err;
+    }
+
+    /* Read the requested initial output frequency from device tree */
+    if (!of_property_read_u32(client->dev.of_node, "clock-frequency",
+                &initial_fout)) {
+        dev_info(&client->dev, "initial output frequency: %u\n", initial_fout);
+    }
+
+    /* Display a message indicating that we've successfully registered */
+    dev_info(&client->dev, "registered, current frequency %llu Hz\n",
+            data->frequency);
+
+    return 0;
+}
+
+static int myclock_remove(struct i2c_client *client)
+{
+   printk(KERN_ALERT "myclock_remove\n");
+   of_clk_del_provider(client->dev.of_node);
+   return 0;
+}
+
+static const struct i2c_device_id myclock_id[] = {
+    { "myclock", myclock },
+    { }
+};
+
+MODULE_DEVICE_TABLE(i2c, myclock_id);
+
+static const struct of_device_id myclock_of_match[] = {
+        { .compatible = "dbc,myclock" },
+        {},
+};
+
+MODULE_DEVICE_TABLE(of, myclock_of_match);
+
+static struct i2c_driver myclock_driver = {
+    .driver = {
+        .name = DRV_NAME,
+        .of_match_table = myclock_of_match,
+    },
+    .probe      = myclock_probe,
+    .remove     = myclock_remove,
+    .id_table   = myclock_id,
+};
+
+module_i2c_driver(myclock_driver);
+
+MODULE_DESCRIPTION("Hello World Common clock framework driver");
+MODULE_AUTHOR("David Cater");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:" DRV_NAME);

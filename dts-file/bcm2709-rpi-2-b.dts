@@ -46,13 +46,9 @@
 		reg = <0x0 0x0>;
 	};
 
-        Sample_Pldrv {
-		      	compatible = "Sample_Pldrv";
-        };
-
-        si4703_driver {
-		      	compatible = "si4703_driver";
-        };
+    Sample_Pldrv {
+	      	compatible = "Sample_Pldrv";
+    };
 
 	soc {
 		compatible = "simple-bus";
@@ -395,6 +391,11 @@
 			pinctrl-0 = <0x16>;
 			clock-frequency = <0x186a0>;
 			phandle = <0x24>;
+			mydriver: si4703-driver@10 {
+				compatible = "si4703_driver";
+				reg = <0x10>;
+				clock-frequency = <75000000>;
+			};
 		};
 
 		i2c@7e805000 {
