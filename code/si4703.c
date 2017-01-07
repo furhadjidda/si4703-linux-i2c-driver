@@ -19,6 +19,8 @@
 
 static int major;
 static char kernelBuffer[BUFFER_LENGTH];
+static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct pointer
+static struct device* i2ccharDevice = NULL; ///< The device-driver device struct pointer
 
 static int si4703_probe(struct i2c_client *client,
 						const struct i2c_device_id *id)
@@ -117,8 +119,32 @@ int si4703_init(void)
 
 		return major;
 	}
+   // Register the device class
+   i2ccharClass = class_create(THIS_MODULE, CLASS_NAME);
+   if (IS_ERR(i2ccharClass)){                // Check for error and clean up if there is
+	  unregister_chrdev(major, DEVICE_NAME);
+	  printk(KERN_ALERT "Failed to register device class\n");
+	  return PTR_ERR(i2ccharClass);          // Correct way to return an error on a pointer
+   }
+   printk(KERN_INFO "device class registered correctly\n");
 
-	return i2c_add_driver(&si4703_driver);;
+   // Register the device driver
+   i2ccharDevice = device_create(i2ccharClass,
+		   	   	   	   	   	   	 NULL,
+								 MKDEV(major, 0),
+								 NULL,
+								 DEVICE_NAME);
+
+   if( IS_ERR( i2ccharDevice ) ) // Clean up if there is an error
+   {
+	  class_destroy(i2ccharClass);           // Repeated code but the alternative is goto statements
+	  unregister_chrdev(major, DEVICE_NAME);
+	  printk(KERN_ALERT "Failed to create the device\n");
+	  return PTR_ERR(i2ccharDevice);
+   }
+   printk(KERN_INFO "device class created correctly\n"); // Made it! device was initialized
+
+   return i2c_add_driver(&si4703_driver);
 }
 
 void si4703_cleanup(void)

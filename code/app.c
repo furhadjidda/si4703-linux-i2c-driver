@@ -13,7 +13,7 @@ int main()
 {
 	int fd, err=0;
 	
-	fd = open("/dev/si4703_driver", O_RDWR);
+	fd = open("/dev/i2cchar", O_RDWR);
 	if(fd < 0)
 	{
 		perror("open:");
