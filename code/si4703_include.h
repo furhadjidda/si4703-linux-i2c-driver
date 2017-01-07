@@ -13,5 +13,6 @@
 
 #define MAJOR_DYNAMIC 0
 #define MAJOR_HARDCODE 189
+#define BUFFER_LENGTH 1024
 
 #endif /* CODE_SI4703_INCLUDE_H_ */

@@ -14,11 +14,11 @@
 #include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/types.h>
-//for platform drivers....
 
 #include "si4703_include.h"
 
 static int major;
+static char kernelBuffer[BUFFER_LENGTH];
 
 static int si4703_probe(struct i2c_client *client,
 						const struct i2c_device_id *id)
@@ -69,11 +69,41 @@ static int  si4703_close(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * offset)
+{
+	printk(KERN_INFO "\n si4703_read called \n");
+	return 4;
+}
+
+
+
+ssize_t  si4703_write(struct file* file,
+					  const char __user* buffer,
+					  size_t length,
+					  loff_t* offset)
+{
+	ssize_t ret = 0;
+	printk(KERN_INFO "\n si4703_write called \n");
+	if( length >= BUFFER_LENGTH )
+	{
+		length = BUFFER_LENGTH;
+	}
+
+	ret = copy_from_user(kernelBuffer, buffer, length);
+
+	printk(KERN_INFO "\n data to write %s \n",kernelBuffer);
+
+	return ret;
+}
+
 static const struct file_operations sample_fops = {
         .owner = THIS_MODULE,
         .unlocked_ioctl = si4703_ioctl,
         .open           = si4703_open,
-        .release        = si4703_close
+        .release        = si4703_close,
+		.read 			= si4703_read,
+		.write 			= si4703_write
+
 };
 
 int si4703_init(void)
@@ -107,4 +137,5 @@ module_exit(si4703_cleanup);
 
 MODULE_DESCRIPTION("SI4703 I2C client driver");
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Furhad Jidda");
 
