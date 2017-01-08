@@ -14,7 +14,8 @@
 #include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/types.h>
-
+#include <linux/errno.h>
+#include <linux/slab.h>
 #include "si4703_include.h"
 
 static int major;
@@ -22,9 +23,36 @@ static char kernelBuffer[BUFFER_LENGTH];
 static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct pointer
 static struct device* i2ccharDevice = NULL; ///< The device-driver device struct pointer
 
+
+struct i2cState {
+	struct i2c_client*		i2cClient;
+	struct i2c_device_id* 	i2cDeviceId;
+};
+struct i2cState *state;
+
 static int si4703_probe(struct i2c_client *client,
 						const struct i2c_device_id *id)
 {
+	struct device *dev = &client->dev;
+
+	if (!i2c_check_functionality(client->adapter, \
+						I2C_FUNC_I2C))
+	{
+			dev_err(&client->dev, \
+				"Need I2C_FUNC_I2C functions \n");
+			printk(KERN_ERR "\n si4703_probe called error\n");
+			return -ENODEV;
+	}
+
+	state = kzalloc(sizeof(struct i2cState), GFP_KERNEL);
+	if (state == NULL)
+	{
+		dev_err(dev, "failed to create our state\n");
+		return -ENOMEM;
+	}
+	state->i2cClient = client;
+	i2c_set_clientdata(client, state);
+
 	printk(KERN_INFO "\n si4703_probe called \n");
 	printk(KERN_INFO "\n Chip address=%d \n",client->addr);
  	return 0;
@@ -32,6 +60,10 @@ static int si4703_probe(struct i2c_client *client,
 
 static int si4703_remove(struct i2c_client *client)
 {
+	struct i2cState *state = i2c_get_clientdata(client);
+
+	kfree(state);
+
 	return 0;
 }
 
@@ -74,7 +106,7 @@ static int  si4703_close(struct inode *inode, struct file *filp)
 ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * offset)
 {
 	printk(KERN_INFO "\n si4703_read called \n");
-	return 4;
+	return 0;
 }
 
 
@@ -85,6 +117,8 @@ ssize_t  si4703_write(struct file* file,
 					  loff_t* offset)
 {
 	ssize_t ret = 0;
+	int bytes = 0;
+
 	printk(KERN_INFO "\n si4703_write called \n");
 	if( length >= BUFFER_LENGTH )
 	{
@@ -94,6 +128,11 @@ ssize_t  si4703_write(struct file* file,
 	ret = copy_from_user(kernelBuffer, buffer, length);
 
 	printk(KERN_INFO "\n data to write %s \n",kernelBuffer);
+	printk(KERN_INFO "\n Slave Address address = %d \n",state->i2cClient->addr);
+
+	// Writing data in I2C Bus
+	bytes = i2c_master_send(state->i2cClient, kernelBuffer, length);
+	printk(KERN_INFO "\n # bytes written %d \n",bytes);
 
 	return ret;
 }
@@ -110,7 +149,8 @@ static const struct file_operations sample_fops = {
 
 int si4703_init(void)
 {
-	printk(KERN_INFO "\n si4703_init called, Welcome to si4703 Platform driver!! \n");
+	int res = 0;
+	printk(KERN_INFO "\n si4703_init called, Welcome to si4703 driver!! \n");
 
 	major = register_chrdev(MAJOR_DYNAMIC, DRIVER_NAME, &sample_fops);
 	if (major < 0)
@@ -119,15 +159,23 @@ int si4703_init(void)
 
 		return major;
 	}
+
    // Register the device class
-   i2ccharClass = class_create(THIS_MODULE, CLASS_NAME);
-   if (IS_ERR(i2ccharClass)){                // Check for error and clean up if there is
-	  unregister_chrdev(major, DEVICE_NAME);
+   i2ccharClass = class_create( THIS_MODULE, CLASS_NAME );
+   if ( IS_ERR( i2ccharClass ) )
+   {
+	  // Check for error and clean up if there is
+	  unregister_chrdev( major, DEVICE_NAME );
 	  printk(KERN_ALERT "Failed to register device class\n");
-	  return PTR_ERR(i2ccharClass);          // Correct way to return an error on a pointer
+	  return PTR_ERR( i2ccharClass );// Correct way to return an error on a pointer
    }
    printk(KERN_INFO "device class registered correctly\n");
 
+   if ((res = i2c_add_driver(&si4703_driver)))
+   {
+		printk("si4703-i2c_add_driver: Driver registration failed, module not inserted.\n");
+		return res;
+   }
    // Register the device driver
    i2ccharDevice = device_create(i2ccharClass,
 		   	   	   	   	   	   	 NULL,
@@ -137,22 +185,27 @@ int si4703_init(void)
 
    if( IS_ERR( i2ccharDevice ) ) // Clean up if there is an error
    {
-	  class_destroy(i2ccharClass);           // Repeated code but the alternative is goto statements
+	  class_destroy(i2ccharClass);
 	  unregister_chrdev(major, DEVICE_NAME);
 	  printk(KERN_ALERT "Failed to create the device\n");
 	  return PTR_ERR(i2ccharDevice);
    }
-   printk(KERN_INFO "device class created correctly\n"); // Made it! device was initialized
 
-   return i2c_add_driver(&si4703_driver);
+   // Made it! device was initialized
+   printk(KERN_INFO "device class %s created correctly\n",CLASS_NAME);
+
+   return 0;
 }
 
 void si4703_cleanup(void)
 {
+	device_destroy(i2ccharClass, MKDEV(major, 0)); // remove the device
+	class_unregister(i2ccharClass); // unregister the device class
+	class_destroy(i2ccharClass); // remove the device class
 	i2c_del_driver(&si4703_driver);
 	unregister_chrdev(major, DRIVER_NAME);
 
-	printk(KERN_INFO "\n Exiting Si4703 Platform driver... \n");
+	printk(KERN_INFO "\n Exiting Si4703 driver... \n");
 
 	return;
 }

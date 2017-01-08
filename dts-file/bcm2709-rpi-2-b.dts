@@ -394,7 +394,7 @@
 			mydriver: si4703-driver@10 {
 				compatible = "si4703_driver";
 				reg = <0x10>;
-				clock-frequency = <75000000>;
+				clock-frequency = <0x186a0>;
 			};
 		};
 
