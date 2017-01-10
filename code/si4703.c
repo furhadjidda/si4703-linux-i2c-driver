@@ -16,6 +16,8 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
 #include "si4703_include.h"
 
 static int major;
@@ -52,6 +54,19 @@ static int si4703_probe(struct i2c_client *client,
 	}
 	state->i2cClient = client;
 	i2c_set_clientdata(client, state);
+
+	// initializing i2c
+	gpio_free(23);
+	gpio_free(0);
+
+	gpio_request(23,"23");
+	gpio_request(0,"0");
+	gpio_direction_output(0,0);
+	mdelay(500);
+	gpio_direction_output(23,0);
+	mdelay(500);
+	gpio_direction_output(23,1);
+	mdelay(500);
 
 	printk(KERN_INFO "\n si4703_probe called \n");
 	printk(KERN_INFO "\n Chip address=%d \n",client->addr);
