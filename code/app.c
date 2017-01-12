@@ -46,6 +46,8 @@ int main()
 	write(fd,list5,sizeof(list5));
 	sleep(1);
 
+	read(fd,list5,10);
+
 	close(fd);
 	return 0;
 }

@@ -22,6 +22,7 @@
 
 static int major;
 static char kernelBuffer[BUFFER_LENGTH];
+static char kernelRcvBuffer[BUFFER_LENGTH];
 static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct pointer
 static struct device* i2ccharDevice = NULL; ///< The device-driver device struct pointer
 
@@ -120,7 +121,18 @@ static int  si4703_close(struct inode *inode, struct file *filp)
 
 ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * offset)
 {
+	int bytes = 0;
+	int i =0;
+	int j=0;
 	printk(KERN_INFO "\n si4703_read called \n");
+	bytes = i2c_master_recv(state->i2cClient,kernelRcvBuffer,32);
+	printk(KERN_INFO "bytes read =%d\n",bytes);
+
+	for(;j<32;++i)
+	{
+		printk("==> %d [%d]=%x [%d]=%x\n",i,j,kernelRcvBuffer[j],j+1,kernelRcvBuffer[j+1]);
+		j+=2;
+	}
 	return 0;
 }
 
