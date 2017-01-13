@@ -46,7 +46,18 @@ int main()
 	write(fd,list5,sizeof(list5));
 	sleep(1);
 
-	read(fd,list5,10);
+	char buffer[1024] = {};
+	while(1)
+	{
+		read(fd,buffer,32);
+		for(int i=0,j=0;j<32;++i)
+		{
+			printf("==> %d [%d]=%x [%d]=%x\n",i,j,buffer[j],j+1,buffer[j+1]);
+			j+=2;
+		}
+		sleep(1);
+
+	}
 
 	close(fd);
 	return 0;

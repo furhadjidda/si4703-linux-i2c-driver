@@ -125,7 +125,7 @@ ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * 
 	int i =0;
 	int j=0;
 	printk(KERN_INFO "\n si4703_read called \n");
-	bytes = i2c_master_recv(state->i2cClient,kernelRcvBuffer,32);
+	bytes = i2c_master_recv(state->i2cClient,kernelRcvBuffer,len);
 	printk(KERN_INFO "bytes read =%d\n",bytes);
 
 	for(;j<32;++i)
@@ -133,6 +133,10 @@ ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * 
 		printk("==> %d [%d]=%x [%d]=%x\n",i,j,kernelRcvBuffer[j],j+1,kernelRcvBuffer[j+1]);
 		j+=2;
 	}
+
+	bytes = copy_to_user(buff,kernelRcvBuffer,len);
+
+
 	return 0;
 }
 
