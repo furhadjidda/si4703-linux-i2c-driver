@@ -2,17 +2,21 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include<stdio.h>
-#include<stdlib.h>
-#include<errno.h>
-#include<fcntl.h>
-#include<string.h>
-#include<unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+#include "protocol_struct.h"
 
 int main()
 {
 	int fd, err=0;
 	unsigned int nc = 0;
+	struct Message msg1 = {};
+	msg1.Id = TUNE;
+	msg1.freq = 1011;
 	nc = 981; //this is 101.1 The Fox In Kansas City Classic Rock!!
 	nc *= 10;  //this math is for USA FM only
 	nc -= 8750;
@@ -44,8 +48,10 @@ int main()
 
 	char list5[] = {64,1,0,nc};
 	write(fd,list5,sizeof(list5));
-	sleep(1);
+	sleep(4);
 
+
+	write(fd,&msg1,sizeof(msg1));
 	char buffer[1024] = {};
 	while(1)
 	{

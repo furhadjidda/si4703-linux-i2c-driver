@@ -19,6 +19,7 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include "si4703_include.h"
+#include "protocol_struct.h"
 
 static int major;
 static char kernelBuffer[BUFFER_LENGTH];
@@ -140,6 +141,23 @@ ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * 
 	return 0;
 }
 
+static void Tune( unsigned int freq )
+{
+	unsigned int nc = 0;
+	nc = freq; //this is 98.1 FM !!!
+	nc *= 10;  //this math is for USA FM only
+	nc -= 8750;
+	nc /= 20;
+	int bytes = 0;
+	char list4[] = {64,1,128,nc};
+
+	char list5[] = {64,1,0,nc};
+
+	bytes = i2c_master_send(state->i2cClient, list4, sizeof(list4));
+	mdelay(1000);
+	bytes = i2c_master_send(state->i2cClient, list5, sizeof(list5));
+	mdelay(1000);
+}
 
 
 ssize_t  si4703_write(struct file* file,
@@ -150,6 +168,7 @@ ssize_t  si4703_write(struct file* file,
 	ssize_t ret = 0;
 	int bytes = 0;
 
+
 	printk(KERN_INFO "\n si4703_write called \n");
 	if( length >= BUFFER_LENGTH )
 	{
@@ -158,12 +177,19 @@ ssize_t  si4703_write(struct file* file,
 
 	ret = copy_from_user(kernelBuffer, buffer, length);
 
-	printk(KERN_INFO "\n data to write %s \n",kernelBuffer);
-	printk(KERN_INFO "\n Slave Address address = %d \n",state->i2cClient->addr);
-
-	// Writing data in I2C Bus
-	bytes = i2c_master_send(state->i2cClient, kernelBuffer, length);
-	printk(KERN_INFO "\n # bytes written %d \n",bytes);
+	struct Message *msg = kmalloc(sizeof(struct Message), GFP_KERNEL);
+	msg = (struct Message*)kernelBuffer;
+	if( length == sizeof(struct Message) && (msg->Id == TUNE) )
+	{
+		Tune( msg->freq );
+		printk("Tuning to frequency=%d\n",msg->freq);
+	}
+	else
+	{
+		// Writing data in I2C Bus
+		bytes = i2c_master_send(state->i2cClient, kernelBuffer, length);
+		printk(KERN_INFO "\n # bytes written %d \n",bytes);
+	}
 
 	return ret;
 }
