@@ -12,7 +12,7 @@
 
 int main()
 {
-	int fd, err=0;
+	int fd,fd2, err=0;
 	unsigned int nc = 0;
 	struct Message msg1 = {};
 	msg1.Id = TUNE;
@@ -22,7 +22,14 @@ int main()
 	nc -= 8750;
 	nc /= 20;
 	
-	fd = open("/dev/i2cchar", O_RDWR);
+	fd = open("/dev/i2cchar0", O_RDWR);
+	if(fd < 0)
+	{
+		perror("open:");
+		return -1;
+	}
+
+	fd2 = open("/dev/i2cchar1", O_RDWR);
 	if(fd < 0)
 	{
 		perror("open:");
@@ -55,7 +62,7 @@ int main()
 	char buffer[1024] = {};
 	while(1)
 	{
-		read(fd,buffer,32);
+		read(fd2,buffer,32);
 		for(int i=0,j=0;j<32;++i)
 		{
 			printf("==> %d [%d]=%x [%d]=%x\n",i,j,buffer[j],j+1,buffer[j+1]);

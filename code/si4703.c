@@ -25,8 +25,10 @@ static int major;
 static char kernelBuffer[BUFFER_LENGTH];
 static char kernelRcvBuffer[BUFFER_LENGTH];
 static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct pointer
-static struct device* i2ccharDevice = NULL; ///< The device-driver device struct pointer
+static struct device* i2ccharDevice1 = NULL; ///< The device-driver device struct pointer
+static struct device* i2ccharDevice2 = NULL; ///< The device-driver device struct pointer
 
+static const unsigned short number_of_devices = 3;
 
 struct i2cState {
 	struct i2c_client*		i2cClient;
@@ -233,19 +235,34 @@ int si4703_init(void)
 		printk("si4703-i2c_add_driver: Driver registration failed, module not inserted.\n");
 		return res;
    }
-   // Register the device driver
-   i2ccharDevice = device_create(i2ccharClass,
+
+
+   i2ccharDevice1 = device_create(i2ccharClass,
 		   	   	   	   	   	   	 NULL,
 								 MKDEV(major, 0),
 								 NULL,
-								 DEVICE_NAME);
+								 DEVICE_NAME "%d",0);
 
-   if( IS_ERR( i2ccharDevice ) ) // Clean up if there is an error
+   if( IS_ERR( i2ccharDevice1 ) ) // Clean up if there is an error
    {
 	  class_destroy(i2ccharClass);
 	  unregister_chrdev(major, DEVICE_NAME);
 	  printk(KERN_ALERT "Failed to create the device\n");
-	  return PTR_ERR(i2ccharDevice);
+	  return PTR_ERR(i2ccharDevice1);
+   }
+
+   i2ccharDevice2 = device_create(i2ccharClass,
+		   	   	   	   	   	   	 NULL,
+								 MKDEV(major, 1),
+								 NULL,
+								 DEVICE_NAME "%d",1);
+
+   if( IS_ERR( i2ccharDevice2 ) ) // Clean up if there is an error
+   {
+	  class_destroy(i2ccharClass);
+	  unregister_chrdev(major, DEVICE_NAME);
+	  printk(KERN_ALERT "Failed to create the device\n");
+	  return PTR_ERR(i2ccharDevice2);
    }
 
    // Made it! device was initialized
