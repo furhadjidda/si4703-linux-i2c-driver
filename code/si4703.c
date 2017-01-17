@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#include <linux/cdev.h>
 #include "si4703_include.h"
 #include "protocol_struct.h"
 
@@ -25,9 +26,7 @@ static int major;
 static char kernelBuffer[BUFFER_LENGTH];
 static char kernelRcvBuffer[BUFFER_LENGTH];
 static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct pointer
-static struct device* i2ccharDevice1 = NULL; ///< The device-driver device struct pointer
-static struct device* i2ccharDevice2 = NULL; ///< The device-driver device struct pointer
-
+static struct si4703_dev *si4703_devices = NULL;
 static const unsigned short number_of_devices = 3;
 
 struct i2cState {
@@ -146,11 +145,12 @@ ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * 
 static void Tune( unsigned int freq )
 {
 	unsigned int nc = 0;
+	int bytes = 0;
+
 	nc = freq; //this is 98.1 FM !!!
 	nc *= 10;  //this math is for USA FM only
 	nc -= 8750;
 	nc /= 20;
-	int bytes = 0;
 	char list4[] = {64,1,128,nc};
 
 	char list5[] = {64,1,0,nc};
@@ -196,7 +196,7 @@ ssize_t  si4703_write(struct file* file,
 	return ret;
 }
 
-static const struct file_operations sample_fops = {
+static const struct file_operations si4703_fops = {
         .owner = THIS_MODULE,
         .unlocked_ioctl = si4703_ioctl,
         .open           = si4703_open,
@@ -206,79 +206,136 @@ static const struct file_operations sample_fops = {
 
 };
 
+static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct class *class)
+{
+	int err = 0;
+	dev_t devno = MKDEV(major, minor);
+	struct device *device = NULL;
+
+	BUG_ON(dev == NULL || class == NULL);
+
+	/* Memory is to be allocated when the device is opened the first time */
+	mutex_init(&dev->mutex);
+
+	cdev_init(&dev->cdev, &si4703_fops);
+	dev->cdev.owner = THIS_MODULE;
+
+	err = cdev_add(&dev->cdev, devno, 1);
+	if (err)
+	{
+		printk(KERN_WARNING "[target] Error %d while trying to add %s%d",
+			err, DEVICE_NAME, minor);
+		return err;
+	}
+
+	device = device_create(class, NULL, /* no parent device */
+		devno, NULL, /* no additional data */
+		DEVICE_NAME "%d", minor);
+
+	if (IS_ERR(device)) {
+		err = PTR_ERR(device);
+		printk(KERN_WARNING "[target] Error %d while trying to create %s%d",
+			err, DEVICE_NAME, minor);
+		cdev_del(&dev->cdev);
+		return err;
+	}
+	return 0;
+}
+
+/* Destroy the device and free its buffer */
+static void si4703_destroy_device(struct si4703_dev *dev, int minor,
+	struct class *class)
+{
+	BUG_ON(dev == NULL || class == NULL);
+	device_destroy(class, MKDEV(major, minor));
+	cdev_del(&dev->cdev);
+	mutex_destroy(&dev->mutex);
+	return;
+}
+
+/* ================================================================ */
+static void si4703_cleanup_module(int devices_to_destroy)
+{
+	int i;
+
+	/* Get rid of character devices (if any exist) */
+	if (si4703_devices) {
+		for (i = 0; i < devices_to_destroy; ++i) {
+			si4703_destroy_device(&si4703_devices[i], i, i2ccharClass);
+		}
+		kfree(si4703_devices);
+	}
+
+	if (i2ccharClass)
+		class_destroy(i2ccharClass);
+
+	/* [NB] si4703_cleanup_module is never called if alloc_chrdev_region()
+	 * has failed. */
+	unregister_chrdev_region(MKDEV(major, 0), number_of_devices);
+	return;
+}
+
 int si4703_init(void)
 {
 	int res = 0;
+	int i = 0;
+	dev_t dev = 0;
+	int devices_to_destroy = 0;
+
 	printk(KERN_INFO "\n si4703_init called, Welcome to si4703 driver!! \n");
 
-	major = register_chrdev(MAJOR_DYNAMIC, DRIVER_NAME, &sample_fops);
-	if (major < 0)
-	{
-		printk(KERN_ERR "%s: couldn't get a major number.\n", DRIVER_NAME);
-
-		return major;
+	res = alloc_chrdev_region(&dev, 0, number_of_devices, DEVICE_NAME);
+		if (res < 0) {
+			printk(KERN_WARNING "alloc_chrdev_region() failed\n");
+			return res;
 	}
 
-   // Register the device class
-   i2ccharClass = class_create( THIS_MODULE, CLASS_NAME );
-   if ( IS_ERR( i2ccharClass ) )
-   {
+	major = MAJOR(dev);
+
+	// Register the device class
+	i2ccharClass = class_create( THIS_MODULE, CLASS_NAME );
+	if ( IS_ERR( i2ccharClass ) ){
 	  // Check for error and clean up if there is
-	  unregister_chrdev( major, DEVICE_NAME );
+	  //unregister_chrdev( major, DEVICE_NAME );
 	  printk(KERN_ALERT "Failed to register device class\n");
 	  return PTR_ERR( i2ccharClass );// Correct way to return an error on a pointer
-   }
-   printk(KERN_INFO "device class registered correctly\n");
+	}
 
-   if ((res = i2c_add_driver(&si4703_driver)))
-   {
+	/* Allocate the array of devices */
+	si4703_devices = (struct si4703_dev *)kzalloc(number_of_devices * sizeof(struct si4703_dev),GFP_KERNEL);
+	if (si4703_devices == NULL) {
+		res = -ENOMEM;
+		goto fail;
+	}
+
+	if ((res = i2c_add_driver(&si4703_driver)))	{
 		printk("si4703-i2c_add_driver: Driver registration failed, module not inserted.\n");
 		return res;
-   }
+	}
 
+	for (i = 0; i < number_of_devices; ++i) {
+		res = si4703_construct_devices(&si4703_devices[i], i, i2ccharClass);
+		if (res) {
+			devices_to_destroy = i;
+			goto fail;
+		}
+	}
 
-   i2ccharDevice1 = device_create(i2ccharClass,
-		   	   	   	   	   	   	 NULL,
-								 MKDEV(major, 0),
-								 NULL,
-								 DEVICE_NAME "%d",0);
+	// Made it! device was initialized
+	printk(KERN_INFO "device class %s created correctly\n",CLASS_NAME);
 
-   if( IS_ERR( i2ccharDevice1 ) ) // Clean up if there is an error
-   {
-	  class_destroy(i2ccharClass);
-	  unregister_chrdev(major, DEVICE_NAME);
-	  printk(KERN_ALERT "Failed to create the device\n");
-	  return PTR_ERR(i2ccharDevice1);
-   }
+	return 0;
 
-   i2ccharDevice2 = device_create(i2ccharClass,
-		   	   	   	   	   	   	 NULL,
-								 MKDEV(major, 1),
-								 NULL,
-								 DEVICE_NAME "%d",1);
-
-   if( IS_ERR( i2ccharDevice2 ) ) // Clean up if there is an error
-   {
-	  class_destroy(i2ccharClass);
-	  unregister_chrdev(major, DEVICE_NAME);
-	  printk(KERN_ALERT "Failed to create the device\n");
-	  return PTR_ERR(i2ccharDevice2);
-   }
-
-   // Made it! device was initialized
-   printk(KERN_INFO "device class %s created correctly\n",CLASS_NAME);
-
-   return 0;
+fail:
+   	si4703_cleanup_module(devices_to_destroy);
+   	return res;
 }
 
 void si4703_cleanup(void)
 {
-	device_destroy(i2ccharClass, MKDEV(major, 0)); // remove the device
-	class_unregister(i2ccharClass); // unregister the device class
-	class_destroy(i2ccharClass); // remove the device class
-	i2c_del_driver(&si4703_driver);
-	unregister_chrdev(major, DRIVER_NAME);
 
+	i2c_del_driver(&si4703_driver);
+	si4703_cleanup_module(number_of_devices);
 	printk(KERN_INFO "\n Exiting Si4703 driver... \n");
 
 	return;
