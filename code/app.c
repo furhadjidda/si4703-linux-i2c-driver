@@ -53,13 +53,25 @@ int main()
 	write(fd,list4,sizeof(list4));
 	sleep(1);
 
-	char list5[] = {64,1,0,nc};
+	char list5[] = {64,1,0,nc,0xd0,00};
 	write(fd,list5,sizeof(list5));
 	sleep(4);
 
+	// Seek
+	int count = 0;
+	while (++count < 2)
+	{
+		char seek_clear[] = {0x4E,1,0,nc,0xd0,0x04};
+		write(fd,seek_clear,sizeof(seek_clear));
+		printf("seeking..\n");
+		char list6[] = {0x4F,1,0,nc};
+		write(fd,list6,sizeof(list6));
+		sleep(5);
+	}
+
 
 	write(fd,&msg1,sizeof(msg1));
-	char buffer[1024] = {};
+	char buffer[100] = {};
 	while(1)
 	{
 		read(fd2,buffer,32);
@@ -68,7 +80,7 @@ int main()
 			printf("==> %d [%d]=%x [%d]=%x\n",i,j,buffer[j],j+1,buffer[j+1]);
 			j+=2;
 		}
-		sleep(1);
+		sleep(3);
 
 	}
 
