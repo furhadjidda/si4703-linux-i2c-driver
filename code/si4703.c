@@ -19,6 +19,7 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/cdev.h>
+#include <linux/interrupt.h> // interrupt functions/macros
 #include "si4703_include.h"
 #include "protocol_struct.h"
 
@@ -29,16 +30,27 @@ static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct 
 static struct si4703_dev *si4703_devices = NULL;
 static const unsigned short number_of_devices = 3;
 
+static unsigned int irqNumber;
+
 struct i2cState {
 	struct i2c_client*		i2cClient;
 	struct i2c_device_id* 	i2cDeviceId;
 };
 struct i2cState *state;
 
+
+static irqreturn_t irqHandler(int irq, void *dev_id)
+{
+	printk("irq %d\n", irq);
+
+	return  IRQ_HANDLED;
+}
+
 static int si4703_probe(struct i2c_client *client,
 						const struct i2c_device_id *id)
 {
 	struct device *dev = &client->dev;
+	int result = 0;
 
 	if (!i2c_check_functionality(client->adapter, \
 						I2C_FUNC_I2C))
@@ -59,20 +71,38 @@ static int si4703_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, state);
 
 	// initializing i2c
+	gpio_free(6);
 	gpio_free(23);
 	gpio_free(0);
 
+	//Requesting GPIO
+	gpio_request(6,"6");
 	gpio_request(23,"23");
 	gpio_request(0,"0");
+
+
+	//Settng directions
 	gpio_direction_output(0,0);
 	mdelay(500);
 	gpio_direction_output(23,0);
 	mdelay(500);
 	gpio_direction_output(23,1);
 	mdelay(500);
+	gpio_direction_input(6);
+
+	//gpio_export(6);
+
+	irqNumber = gpio_to_irq(6);        // map your GPIO to an IRQ
+
+	result = request_irq(irqNumber,           // requested interrupt
+					   irqHandler, // pointer to handler function
+					   IRQF_TRIGGER_RISING, // interrupt mode flag
+					   "irqHandler",        // used in /proc/interrupts
+					   0);               // the *dev_id shared interrupt lines, NULL is okay
 
 	printk(KERN_INFO "\n si4703_probe called \n");
 	printk(KERN_INFO "\n Chip address=%d \n",client->addr);
+
  	return 0;
 }
 
