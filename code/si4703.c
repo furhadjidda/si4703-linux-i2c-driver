@@ -22,15 +22,22 @@
 #include <linux/interrupt.h> // interrupt functions/macros
 #include "si4703_include.h"
 #include "protocol_struct.h"
+#include <linux/completion.h>
+
+#include<linux/kthread.h>
+#include<linux/sched.h>
 
 static int major;
 static char kernelBuffer[BUFFER_LENGTH];
 static char kernelRcvBuffer[BUFFER_LENGTH];
+static char buffer[BUFFER_LENGTH] = {};
 static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct pointer
 static struct si4703_dev *si4703_devices = NULL;
 static const unsigned short number_of_devices = 3;
-
+struct task_struct *task;
 static unsigned int irqNumber;
+static int probe_complete = 0;
+static DECLARE_COMPLETION(my_completion);
 
 struct i2cState {
 	struct i2c_client*		i2cClient;
@@ -38,11 +45,34 @@ struct i2cState {
 };
 struct i2cState *state;
 
+static int read_rds_data(void* data)
+{
+	int bytes = 0;
+
+	allow_signal(SIGINT);
+	while(!kthread_should_stop() && state != NULL)
+	{
+		wait_for_completion_interruptible(&my_completion);
+		probe_complete = 0;
+		dev_info(&state->i2cClient->dev,"Reading RDS data \n");
+
+		bytes = i2c_master_recv(state->i2cClient,buffer,12);
+		printk(KERN_INFO "bytes read =%d\n",bytes);
+
+		dev_info(&state->i2cClient->dev,"RDS Group A 0x %02x %02x \n",buffer[4],buffer[5]);
+		dev_info(&state->i2cClient->dev,"RDS Group B 0x %02x %02x \n",buffer[6],buffer[7]);
+		dev_info(&state->i2cClient->dev,"RDS Group C 0x %02x %02x \n",buffer[8],buffer[9]);
+		dev_info(&state->i2cClient->dev,"RDS Group D 0x %02x %02x \n",buffer[10],buffer[11]);
+
+	}
+}
+
 
 static irqreturn_t irqHandler(int irq, void *dev_id)
 {
-	printk("irq %d\n", irq);
-
+	printk("Caling irq handler\n");
+	complete(&my_completion);
+	probe_complete = 1;
 	return  IRQ_HANDLED;
 }
 
@@ -90,8 +120,6 @@ static int si4703_probe(struct i2c_client *client,
 	mdelay(500);
 	gpio_direction_input(6);
 
-	//gpio_export(6);
-
 	irqNumber = gpio_to_irq(6);        // map your GPIO to an IRQ
 
 	result = request_irq(irqNumber,           // requested interrupt
@@ -102,12 +130,22 @@ static int si4703_probe(struct i2c_client *client,
 
 	printk(KERN_INFO "\n si4703_probe called \n");
 	printk(KERN_INFO "\n Chip address=%d \n",client->addr);
+	probe_complete = 1;
+
+
+	task = kthread_run(&read_rds_data,NULL,"1");
+	printk(KERN_INFO"Kernel Thread : %s\n",task->comm);
 
  	return 0;
 }
 
 static int si4703_remove(struct i2c_client *client)
 {
+	if (!IS_ERR_OR_NULL(task)) {
+		send_sig(SIGINT, task, 1);
+		kthread_stop(task);
+	}
+	free_irq(irqNumber,0);
 	struct i2cState *state = i2c_get_clientdata(client);
 
 	kfree(state);
@@ -367,7 +405,6 @@ void si4703_cleanup(void)
 	i2c_del_driver(&si4703_driver);
 	si4703_cleanup_module(number_of_devices);
 	printk(KERN_INFO "\n Exiting Si4703 driver... \n");
-
 	return;
 }
 
