@@ -36,7 +36,7 @@ static struct si4703_dev *si4703_devices = NULL;
 static const unsigned short number_of_devices = 3;
 struct task_struct *task;
 static unsigned int irqNumber;
-static int probe_complete = 0;
+
 static DECLARE_COMPLETION(my_completion);
 
 struct i2cState {
@@ -53,26 +53,27 @@ static int read_rds_data(void* data)
 	while(!kthread_should_stop() && state != NULL)
 	{
 		wait_for_completion_interruptible(&my_completion);
-		probe_complete = 0;
+
 		dev_info(&state->i2cClient->dev,"Reading RDS data \n");
 
 		bytes = i2c_master_recv(state->i2cClient,buffer,12);
-		printk(KERN_INFO "bytes read =%d\n",bytes);
+		dev_info(&state->i2cClient->dev, "Bytes read =%d\n",bytes);
 
 		dev_info(&state->i2cClient->dev,"RDS Group A 0x %02x %02x \n",buffer[4],buffer[5]);
 		dev_info(&state->i2cClient->dev,"RDS Group B 0x %02x %02x \n",buffer[6],buffer[7]);
 		dev_info(&state->i2cClient->dev,"RDS Group C 0x %02x %02x \n",buffer[8],buffer[9]);
 		dev_info(&state->i2cClient->dev,"RDS Group D 0x %02x %02x \n",buffer[10],buffer[11]);
-
 	}
+
+	return 0;
 }
 
 
 static irqreturn_t irqHandler(int irq, void *dev_id)
 {
-	printk("Caling irq handler\n");
+	dev_info(&state->i2cClient->dev,"Calling irq handler\n");
 	complete(&my_completion);
-	probe_complete = 1;
+
 	return  IRQ_HANDLED;
 }
 
@@ -130,8 +131,6 @@ static int si4703_probe(struct i2c_client *client,
 
 	printk(KERN_INFO "\n si4703_probe called \n");
 	printk(KERN_INFO "\n Chip address=%d \n",client->addr);
-	probe_complete = 1;
-
 
 	task = kthread_run(&read_rds_data,NULL,"1");
 	printk(KERN_INFO"Kernel Thread : %s\n",task->comm);
@@ -179,13 +178,13 @@ static long si4703_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static int si4703_open(struct inode *inode, struct file *filp)
 {
-	printk(KERN_INFO "\n si4703_open called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_open called \n");
 	return 0;
 }
 
 static int  si4703_close(struct inode *inode, struct file *filp)
 {
-	printk(KERN_INFO "\n si4703_close called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_close called \n");
 	return 0;
 }
 
@@ -194,13 +193,13 @@ ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * 
 	int bytes = 0;
 	int i =0;
 	int j=0;
-	printk(KERN_INFO "\n si4703_read called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_read called \n");
 	bytes = i2c_master_recv(state->i2cClient,kernelRcvBuffer,len);
-	printk(KERN_INFO "bytes read =%d\n",bytes);
+	dev_info(&state->i2cClient->dev, "Bytes read =%d\n",bytes);
 
 	for(;j<32;++i)
 	{
-		printk("==> %d [%d]=%x [%d]=%x\n",i,j,kernelRcvBuffer[j],j+1,kernelRcvBuffer[j+1]);
+		dev_info(&state->i2cClient->dev,"Reading Registers %d [%d]=%x [%d]=%x\n",i,j,kernelRcvBuffer[j],j+1,kernelRcvBuffer[j+1]);
 		j+=2;
 	}
 
@@ -237,9 +236,9 @@ ssize_t  si4703_write(struct file* file,
 {
 	ssize_t ret = 0;
 	int bytes = 0;
+	struct Message *msg = NULL;
 
-
-	printk(KERN_INFO "\n si4703_write called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_write called \n");
 	if( length >= BUFFER_LENGTH )
 	{
 		length = BUFFER_LENGTH;
@@ -247,18 +246,18 @@ ssize_t  si4703_write(struct file* file,
 
 	ret = copy_from_user(kernelBuffer, buffer, length);
 
-	struct Message *msg = kmalloc(sizeof(struct Message), GFP_KERNEL);
+	msg = kmalloc(sizeof(struct Message), GFP_KERNEL);
 	msg = (struct Message*)kernelBuffer;
 	if( length == sizeof(struct Message) && (msg->Id == TUNE) )
 	{
 		Tune( msg->freq );
-		printk("Tuning to frequency=%d\n",msg->freq);
+		dev_info(&state->i2cClient->dev,"Tuning to frequency=%d\n",msg->freq);
 	}
 	else
 	{
 		// Writing data in I2C Bus
 		bytes = i2c_master_send(state->i2cClient, kernelBuffer, length);
-		printk(KERN_INFO "\n # bytes written %d \n",bytes);
+		dev_info(&state->i2cClient->dev, "# bytes written %d \n",bytes);
 	}
 
 	return ret;
