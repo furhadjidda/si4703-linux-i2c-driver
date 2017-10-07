@@ -1,10 +1,25 @@
 /*
- * si4703.c
+ * drivers/media/radio/si4703/si4703.c
  *
- *  Created on: Jan 2, 2017
- *      Author: furhad
+ * I2C client driver for Si4703
+ *
+ * Copyright (c) 2017 Furhad Jidda
+ * Author: Furhad Jidda<furhadjidda@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -31,8 +46,8 @@ static int major;
 static char kernelBuffer[BUFFER_LENGTH];
 static char kernelRcvBuffer[BUFFER_LENGTH];
 static char buffer[BUFFER_LENGTH] = {};
-static struct class*  i2ccharClass  = NULL; ///< The device-driver class struct pointer
-static struct si4703_dev *si4703_devices = NULL;
+static struct class*  i2ccharClass;
+static struct si4703_dev *si4703_devices;
 static const unsigned short number_of_devices = 3;
 struct task_struct *task;
 static unsigned int irqNumber;
@@ -40,8 +55,8 @@ static unsigned int irqNumber;
 static DECLARE_COMPLETION(my_completion);
 
 struct i2cState {
-	struct i2c_client*		i2cClient;
-	struct i2c_device_id* 	i2cDeviceId;
+	struct i2c_client	*i2cClient;
+	struct i2c_device_id	*i2cDeviceId;
 };
 struct i2cState *state;
 
@@ -54,15 +69,19 @@ static int read_rds_data(void* data)
 	{
 		wait_for_completion_interruptible(&my_completion);
 
-		dev_info(&state->i2cClient->dev,"Reading RDS data \n");
+		dev_info(&state->i2cClient->dev, "Reading RDS data \n");
 
-		bytes = i2c_master_recv(state->i2cClient,buffer,12);
-		dev_info(&state->i2cClient->dev, "Bytes read =%d\n",bytes);
+		bytes = i2c_master_recv(state->i2cClient,buffer, 12);
+		dev_info(&state->i2cClient->dev, "Bytes read =%d\n", bytes);
 
-		dev_info(&state->i2cClient->dev,"RDS Group A 0x %02x %02x \n",buffer[4],buffer[5]);
-		dev_info(&state->i2cClient->dev,"RDS Group B 0x %02x %02x \n",buffer[6],buffer[7]);
-		dev_info(&state->i2cClient->dev,"RDS Group C 0x %02x %02x \n",buffer[8],buffer[9]);
-		dev_info(&state->i2cClient->dev,"RDS Group D 0x %02x %02x \n",buffer[10],buffer[11]);
+		dev_info(&state->i2cClient->dev, "RDS Group A 0x %02x %02x\n",
+				buffer[4], buffer[5]);
+		dev_info(&state->i2cClient->dev, "RDS Group B 0x %02x %02x\n",
+				buffer[6], buffer[7]);
+		dev_info(&state->i2cClient->dev, "RDS Group C 0x %02x %02x\n",
+				buffer[8], buffer[9]);
+		dev_info(&state->i2cClient->dev, "RDS Group D 0x %02x %02x\n",
+				buffer[10], buffer[11]);
 	}
 
 	return 0;
@@ -71,28 +90,26 @@ static int read_rds_data(void* data)
 
 static irqreturn_t irqHandler(int irq, void *dev_id)
 {
-	dev_info(&state->i2cClient->dev,"Calling irq handler\n");
+	dev_info(&state->i2cClient->dev, "Calling irq handler\n");
 	complete(&my_completion);
 
 	return  IRQ_HANDLED;
 }
 
 static int si4703_probe(struct i2c_client *client,
-						const struct i2c_device_id *id)
+				const struct i2c_device_id *id)
 {
 	struct device *dev = &client->dev;
 	int result = 0;
 
-	if (!i2c_check_functionality(client->adapter, \
-						I2C_FUNC_I2C))
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 	{
-			dev_err(&client->dev, \
+			dev_err(&client->dev,
 				"Need I2C_FUNC_I2C functions \n");
-			printk(KERN_ERR "\n si4703_probe called error\n");
 			return -ENODEV;
 	}
 
-	state = kzalloc(sizeof(struct i2cState), GFP_KERNEL);
+	state = devm_kzalloc(&client->dev, sizeof(struct i2cState), GFP_KERNEL);
 	if (state == NULL)
 	{
 		dev_err(dev, "failed to create our state\n");
@@ -121,19 +138,20 @@ static int si4703_probe(struct i2c_client *client,
 	mdelay(500);
 	gpio_direction_input(6);
 
-	irqNumber = gpio_to_irq(6);        // map your GPIO to an IRQ
+	irqNumber = gpio_to_irq(6);// map your GPIO to an IRQ
 
-	result = request_irq(irqNumber,           // requested interrupt
-					   irqHandler, // pointer to handler function
-					   IRQF_TRIGGER_RISING, // interrupt mode flag
-					   "irqHandler",        // used in /proc/interrupts
-					   0);               // the *dev_id shared interrupt lines, NULL is okay
+	result = request_irq(irqNumber,//requested interrupt
+				irqHandler,//pointer to handler function
+				IRQF_TRIGGER_RISING,//interrupt mode flag
+				"irqHandler",//used in /proc/interrupts
+				0);//the *dev_id shared interrupt lines,
+				//NULL is okay
 
-	printk(KERN_INFO "\n si4703_probe called \n");
-	printk(KERN_INFO "\n Chip address=%d \n",client->addr);
+	printk(KERN_INFO "\nsi4703_probe called\n");
+	printk(KERN_INFO "\nChip address=%d\n", client->addr);
 
-	task = kthread_run(&read_rds_data,NULL,"1");
-	printk(KERN_INFO"Kernel Thread : %s\n",task->comm);
+	task = kthread_run(&read_rds_data,NULL, "1");
+	printk(KERN_INFO"Kernel Thread : %s\n", task->comm);
 
  	return 0;
 }
@@ -145,17 +163,14 @@ static int si4703_remove(struct i2c_client *client)
 		kthread_stop(task);
 	}
 	free_irq(irqNumber,0);
-	struct i2cState *state = i2c_get_clientdata(client);
-
-	kfree(state);
 
 	return 0;
 }
 
 
 static const struct i2c_device_id si4703_dev_id[] = {
- { DRIVER_NAME, 0 },
- { }
+		{DRIVER_NAME, 0},
+		{}
 };
 
 MODULE_DEVICE_TABLE(i2c,si4703_dev_id);
@@ -178,7 +193,7 @@ static long si4703_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static int si4703_open(struct inode *inode, struct file *filp)
 {
-	dev_info(&state->i2cClient->dev, "Si4703_open called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_open called\n");
 	return 0;
 }
 
@@ -188,23 +203,28 @@ static int  si4703_close(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-ssize_t  si4703_read(struct file* file, char __user* buff, size_t len, loff_t * offset)
+ssize_t  si4703_read(struct file *file, char __user *buff,
+			size_t len, loff_t *offset)
 {
 	int bytes = 0;
 	int i =0;
 	int j=0;
-	dev_info(&state->i2cClient->dev, "Si4703_read called \n");
-	bytes = i2c_master_recv(state->i2cClient,kernelRcvBuffer,len);
-	dev_info(&state->i2cClient->dev, "Bytes read =%d\n",bytes);
 
-	for(;j<32;++i)
+	dev_info(&state->i2cClient->dev, "Si4703_read called \n");
+	bytes = i2c_master_recv(state->i2cClient, kernelRcvBuffer, len);
+	dev_info(&state->i2cClient->dev, "Bytes read =%d\n", bytes);
+
+	for( ; j < 32; ++i)
 	{
-		dev_info(&state->i2cClient->dev,"Reading Registers %d [%d]=%x [%d]=%x\n",i,j,kernelRcvBuffer[j],j+1,kernelRcvBuffer[j+1]);
-		j+=2;
+		dev_info(&state->i2cClient->dev,
+				"Reading Registers %d [%d]=%x [%d]=%x\n",
+				i,
+				j,
+				kernelRcvBuffer[j], j+1, kernelRcvBuffer[j+1]);
+		j += 2;
 	}
 
-	bytes = copy_to_user(buff,kernelRcvBuffer,len);
-
+	bytes = copy_to_user(buff, kernelRcvBuffer, len);
 
 	return 0;
 }
@@ -218,9 +238,9 @@ static void Tune( unsigned int freq )
 	nc *= 10;  //this math is for USA FM only
 	nc -= 8750;
 	nc /= 20;
-	char list4[] = {64,1,128,nc};
+	char list4[] = {64, 1, 128, nc};
 
-	char list5[] = {64,1,0,nc};
+	char list5[] = {64, 1, 0, nc};
 
 	bytes = i2c_master_send(state->i2cClient, list4, sizeof(list4));
 	mdelay(1000);
@@ -229,16 +249,16 @@ static void Tune( unsigned int freq )
 }
 
 
-ssize_t  si4703_write(struct file* file,
-					  const char __user* buffer,
-					  size_t length,
-					  loff_t* offset)
+ssize_t  si4703_write(struct file *file,
+				const char __user *buffer,
+				size_t length,
+				loff_t *offset)
 {
 	ssize_t ret = 0;
 	int bytes = 0;
 	struct Message *msg = NULL;
 
-	dev_info(&state->i2cClient->dev, "Si4703_write called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_write called\n");
 	if( length >= BUFFER_LENGTH )
 	{
 		length = BUFFER_LENGTH;
@@ -247,7 +267,7 @@ ssize_t  si4703_write(struct file* file,
 	ret = copy_from_user(kernelBuffer, buffer, length);
 
 	msg = kmalloc(sizeof(struct Message), GFP_KERNEL);
-	msg = (struct Message*)kernelBuffer;
+	msg = (struct Message *)kernelBuffer;
 	if( length == sizeof(struct Message) && (msg->Id == TUNE) )
 	{
 		Tune( msg->freq );
@@ -264,13 +284,12 @@ ssize_t  si4703_write(struct file* file,
 }
 
 static const struct file_operations si4703_fops = {
-        .owner = THIS_MODULE,
-        .unlocked_ioctl = si4703_ioctl,
-        .open           = si4703_open,
-        .release        = si4703_close,
-		.read 			= si4703_read,
-		.write 			= si4703_write
-
+	.owner = THIS_MODULE,
+	.unlocked_ioctl	= si4703_ioctl,
+	.open		= si4703_open,
+	.release	= si4703_close,
+	.read 		= si4703_read,
+	.write 		= si4703_write
 };
 
 static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct class *class)
@@ -281,7 +300,7 @@ static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct cla
 
 	BUG_ON(dev == NULL || class == NULL);
 
-	/* Memory is to be allocated when the device is opened the first time */
+	/*Memory is to be allocated when the device is opened the first time*/
 	mutex_init(&dev->mutex);
 
 	cdev_init(&dev->cdev, &si4703_fops);
@@ -290,7 +309,8 @@ static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct cla
 	err = cdev_add(&dev->cdev, devno, 1);
 	if (err)
 	{
-		printk(KERN_WARNING "[target] Error %d while trying to add %s%d",
+		printk(KERN_WARNING
+			"[target] Error %d while trying to add %s%d",
 			err, DEVICE_NAME, minor);
 		return err;
 	}
@@ -301,7 +321,8 @@ static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct cla
 
 	if (IS_ERR(device)) {
 		err = PTR_ERR(device);
-		printk(KERN_WARNING "[target] Error %d while trying to create %s%d",
+		printk(KERN_WARNING
+			"[target] Error %d while trying to create %s%d",
 			err, DEVICE_NAME, minor);
 		cdev_del(&dev->cdev);
 		return err;
@@ -328,7 +349,8 @@ static void si4703_cleanup_module(int devices_to_destroy)
 	/* Get rid of character devices (if any exist) */
 	if (si4703_devices) {
 		for (i = 0; i < devices_to_destroy; ++i) {
-			si4703_destroy_device(&si4703_devices[i], i, i2ccharClass);
+			si4703_destroy_device(&si4703_devices[i], i,
+					i2ccharClass);
 		}
 		kfree(si4703_devices);
 	}
