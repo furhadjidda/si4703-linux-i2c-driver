@@ -34,19 +34,21 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/cdev.h>
-#include <linux/interrupt.h> // interrupt functions/macros
-#include "si4703_include.h"
-#include "protocol_struct.h"
+#include <linux/interrupt.h>
 #include <linux/completion.h>
-
 #include<linux/kthread.h>
 #include<linux/sched.h>
+
+#include "si4703_include.h"
+#include "protocol_struct.h"
+
+#define DEBUG_KERN 0
 
 static int major;
 static char kernelBuffer[BUFFER_LENGTH];
 static char kernelRcvBuffer[BUFFER_LENGTH];
 static char buffer[BUFFER_LENGTH] = {};
-static struct class*  i2ccharClass;
+static struct class *i2ccharClass;
 static struct si4703_dev *si4703_devices;
 static const unsigned short number_of_devices = 3;
 struct task_struct *task;
@@ -58,20 +60,20 @@ struct i2cState {
 	struct i2c_client	*i2cClient;
 	struct i2c_device_id	*i2cDeviceId;
 };
-struct i2cState *state;
+static struct i2cState *state;
 
-static int read_rds_data(void* data)
+static int read_rds_data(void *data)
 {
 	int bytes = 0;
 
 	allow_signal(SIGINT);
-	while(!kthread_should_stop() && state != NULL)
-	{
+	while (!kthread_should_stop() && state != NULL) {
+
 		wait_for_completion_interruptible(&my_completion);
 
-		dev_info(&state->i2cClient->dev, "Reading RDS data \n");
+		dev_info(&state->i2cClient->dev, "Reading RDS data\n");
 
-		bytes = i2c_master_recv(state->i2cClient,buffer, 12);
+		bytes = i2c_master_recv(state->i2cClient, buffer, 12);
 		dev_info(&state->i2cClient->dev, "Bytes read =%d\n", bytes);
 
 		dev_info(&state->i2cClient->dev, "RDS Group A 0x %02x %02x\n",
@@ -102,19 +104,16 @@ static int si4703_probe(struct i2c_client *client,
 	struct device *dev = &client->dev;
 	int result = 0;
 
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
-	{
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 			dev_err(&client->dev,
-				"Need I2C_FUNC_I2C functions \n");
+				"Need I2C_FUNC_I2C functions\n");
 			return -ENODEV;
 	}
 
 	state = devm_kzalloc(&client->dev, sizeof(struct i2cState), GFP_KERNEL);
 	if (state == NULL)
-	{
-		dev_err(dev, "failed to create our state\n");
 		return -ENOMEM;
-	}
+
 	state->i2cClient = client;
 	i2c_set_clientdata(client, state);
 
@@ -124,36 +123,34 @@ static int si4703_probe(struct i2c_client *client,
 	gpio_free(0);
 
 	//Requesting GPIO
-	gpio_request(6,"6");
-	gpio_request(23,"23");
-	gpio_request(0,"0");
-
-
+	gpio_request(6, "6");
+	gpio_request(23, "23");
+	gpio_request(0, "0");
 	//Settng directions
-	gpio_direction_output(0,0);
+	gpio_direction_output(0, 0);
 	mdelay(500);
-	gpio_direction_output(23,0);
+	gpio_direction_output(23, 0);
 	mdelay(500);
-	gpio_direction_output(23,1);
+	gpio_direction_output(23, 1);
 	mdelay(500);
 	gpio_direction_input(6);
 
 	irqNumber = gpio_to_irq(6);// map your GPIO to an IRQ
 
-	result = request_irq(irqNumber,//requested interrupt
-				irqHandler,//pointer to handler function
-				IRQF_TRIGGER_RISING,//interrupt mode flag
-				"irqHandler",//used in /proc/interrupts
+	result = request_irq(irqNumber, //requested interrupt
+				irqHandler, //pointer to handler function
+				IRQF_TRIGGER_RISING, //interrupt mode flag
+				"irqHandler", //used in /proc/interrupts
 				0);//the *dev_id shared interrupt lines,
 				//NULL is okay
 
-	printk(KERN_INFO "\nsi4703_probe called\n");
-	printk(KERN_INFO "\nChip address=%d\n", client->addr);
+	dev_dbg(dev, "\nsi4703_probe called\n");
+	dev_dbg(dev, "\nChip address=%d\n", client->addr);
 
-	task = kthread_run(&read_rds_data,NULL, "1");
-	printk(KERN_INFO"Kernel Thread : %s\n", task->comm);
+	task = kthread_run(&read_rds_data, NULL, "1");
+	dev_dbg(dev, "Kernel Thread : %s\n", task->comm);
 
- 	return 0;
+	return 0;
 }
 
 static int si4703_remove(struct i2c_client *client)
@@ -162,7 +159,7 @@ static int si4703_remove(struct i2c_client *client)
 		send_sig(SIGINT, task, 1);
 		kthread_stop(task);
 	}
-	free_irq(irqNumber,0);
+	free_irq(irqNumber, 0);
 
 	return 0;
 }
@@ -173,7 +170,7 @@ static const struct i2c_device_id si4703_dev_id[] = {
 		{}
 };
 
-MODULE_DEVICE_TABLE(i2c,si4703_dev_id);
+MODULE_DEVICE_TABLE(i2c, si4703_dev_id);
 
 
 static struct i2c_driver si4703_driver = {
@@ -199,23 +196,22 @@ static int si4703_open(struct inode *inode, struct file *filp)
 
 static int  si4703_close(struct inode *inode, struct file *filp)
 {
-	dev_info(&state->i2cClient->dev, "Si4703_close called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_close called\n");
 	return 0;
 }
 
-ssize_t  si4703_read(struct file *file, char __user *buff,
+ssize_t si4703_read(struct file *file, char __user *buff,
 			size_t len, loff_t *offset)
 {
 	int bytes = 0;
-	int i =0;
-	int j=0;
+	int i = 0;
+	int j = 0;
 
-	dev_info(&state->i2cClient->dev, "Si4703_read called \n");
+	dev_info(&state->i2cClient->dev, "Si4703_read called\n");
 	bytes = i2c_master_recv(state->i2cClient, kernelRcvBuffer, len);
 	dev_info(&state->i2cClient->dev, "Bytes read =%d\n", bytes);
 
-	for( ; j < 32; ++i)
-	{
+	for ( ; j < 32; ++i) {
 		dev_info(&state->i2cClient->dev,
 				"Reading Registers %d [%d]=%x [%d]=%x\n",
 				i,
@@ -229,7 +225,7 @@ ssize_t  si4703_read(struct file *file, char __user *buff,
 	return 0;
 }
 
-static void Tune( unsigned int freq )
+static void Tune(unsigned int freq)
 {
 	unsigned int nc = 0;
 	int bytes = 0;
@@ -259,25 +255,24 @@ ssize_t  si4703_write(struct file *file,
 	struct Message *msg = NULL;
 
 	dev_info(&state->i2cClient->dev, "Si4703_write called\n");
-	if( length >= BUFFER_LENGTH )
-	{
+
+	if (length >= BUFFER_LENGTH)
 		length = BUFFER_LENGTH;
-	}
 
 	ret = copy_from_user(kernelBuffer, buffer, length);
 
 	msg = kmalloc(sizeof(struct Message), GFP_KERNEL);
 	msg = (struct Message *)kernelBuffer;
-	if( length == sizeof(struct Message) && (msg->Id == TUNE) )
-	{
-		Tune( msg->freq );
-		dev_info(&state->i2cClient->dev,"Tuning to frequency=%d\n",msg->freq);
-	}
-	else
-	{
+
+	if (length == sizeof(struct Message) && (msg->Id == TUNE)) {
+		Tune(msg->freq);
+		dev_info(&state->i2cClient->dev,
+				"Tuning to frequency=%d\n", msg->freq);
+	} else {
 		// Writing data in I2C Bus
 		bytes = i2c_master_send(state->i2cClient, kernelBuffer, length);
-		dev_info(&state->i2cClient->dev, "# bytes written %d \n",bytes);
+		dev_info(&state->i2cClient->dev,
+				"# bytes written %d\n", bytes);
 	}
 
 	return ret;
@@ -288,11 +283,12 @@ static const struct file_operations si4703_fops = {
 	.unlocked_ioctl	= si4703_ioctl,
 	.open		= si4703_open,
 	.release	= si4703_close,
-	.read 		= si4703_read,
-	.write 		= si4703_write
+	.read		= si4703_read,
+	.write		= si4703_write
 };
 
-static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct class *class)
+static int si4703_construct_devices(struct si4703_dev *dev, int minor,
+		struct class *class)
 {
 	int err = 0;
 	dev_t devno = MKDEV(major, minor);
@@ -307,9 +303,8 @@ static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct cla
 	dev->cdev.owner = THIS_MODULE;
 
 	err = cdev_add(&dev->cdev, devno, 1);
-	if (err)
-	{
-		printk(KERN_WARNING
+	if (err) {
+		dev_err(&state->i2cClient->dev,
 			"[target] Error %d while trying to add %s%d",
 			err, DEVICE_NAME, minor);
 		return err;
@@ -321,7 +316,7 @@ static int si4703_construct_devices(struct si4703_dev *dev, int minor,struct cla
 
 	if (IS_ERR(device)) {
 		err = PTR_ERR(device);
-		printk(KERN_WARNING
+		dev_err(&state->i2cClient->dev,
 			"[target] Error %d while trying to create %s%d",
 			err, DEVICE_NAME, minor);
 		cdev_del(&dev->cdev);
@@ -338,10 +333,8 @@ static void si4703_destroy_device(struct si4703_dev *dev, int minor,
 	device_destroy(class, MKDEV(major, minor));
 	cdev_del(&dev->cdev);
 	mutex_destroy(&dev->mutex);
-	return;
 }
 
-/* ================================================================ */
 static void si4703_cleanup_module(int devices_to_destroy)
 {
 	int i;
@@ -359,9 +352,9 @@ static void si4703_cleanup_module(int devices_to_destroy)
 		class_destroy(i2ccharClass);
 
 	/* [NB] si4703_cleanup_module is never called if alloc_chrdev_region()
-	 * has failed. */
+	 * has failed.
+	 */
 	unregister_chrdev_region(MKDEV(major, 0), number_of_devices);
-	return;
 }
 
 int si4703_init(void)
@@ -371,34 +364,36 @@ int si4703_init(void)
 	dev_t dev = 0;
 	int devices_to_destroy = 0;
 
-	printk(KERN_INFO "\n si4703_init called, Welcome to si4703 driver!! \n");
-
 	res = alloc_chrdev_region(&dev, 0, number_of_devices, DEVICE_NAME);
 		if (res < 0) {
-			printk(KERN_WARNING "alloc_chrdev_region() failed\n");
+			pr_err("alloc_chrdev_region() failed\n");
 			return res;
 	}
 
 	major = MAJOR(dev);
 
 	// Register the device class
-	i2ccharClass = class_create( THIS_MODULE, CLASS_NAME );
-	if ( IS_ERR( i2ccharClass ) ){
-	  // Check for error and clean up if there is
-	  //unregister_chrdev( major, DEVICE_NAME );
-	  printk(KERN_ALERT "Failed to register device class\n");
-	  return PTR_ERR( i2ccharClass );// Correct way to return an error on a pointer
+	i2ccharClass = class_create(THIS_MODULE, CLASS_NAME);
+	if (IS_ERR(i2ccharClass)) {
+		// Check for error and clean up if there is
+		pr_err("Failed to register device class\n");
+		return PTR_ERR(i2ccharClass);
 	}
 
 	/* Allocate the array of devices */
-	si4703_devices = (struct si4703_dev *)kzalloc(number_of_devices * sizeof(struct si4703_dev),GFP_KERNEL);
+	si4703_devices = (struct si4703_dev *)kzalloc(number_of_devices * \
+			sizeof(struct si4703_dev), GFP_KERNEL);
+
 	if (si4703_devices == NULL) {
 		res = -ENOMEM;
 		goto fail;
 	}
 
-	if ((res = i2c_add_driver(&si4703_driver)))	{
-		printk("si4703-i2c_add_driver: Driver registration failed, module not inserted.\n");
+	res = i2c_add_driver(&si4703_driver);
+
+	if (0 != res) {
+		pr_err("si4703-i2c_add_driver: Driver registration failed,"
+				"module not inserted.\n");
 		return res;
 	}
 
@@ -411,13 +406,15 @@ int si4703_init(void)
 	}
 
 	// Made it! device was initialized
-	printk(KERN_INFO "device class %s created correctly\n",CLASS_NAME);
+#if DEBUG_KERN
+	printk(KERN_INFO "device class %s created correctly\n", CLASS_NAME);
+#endif
 
 	return 0;
 
 fail:
-   	si4703_cleanup_module(devices_to_destroy);
-   	return res;
+	si4703_cleanup_module(devices_to_destroy);
+	return res;
 }
 
 void si4703_cleanup(void)
@@ -425,7 +422,9 @@ void si4703_cleanup(void)
 
 	i2c_del_driver(&si4703_driver);
 	si4703_cleanup_module(number_of_devices);
-	printk(KERN_INFO "\n Exiting Si4703 driver... \n");
+#if DEBUG_KERN
+	printk(KERN_INFO "\nExiting Si4703 driver!!\n");
+#endif
 	return;
 }
 
