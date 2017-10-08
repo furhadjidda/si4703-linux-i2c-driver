@@ -105,9 +105,9 @@ static int si4703_probe(struct i2c_client *client,
 	int result = 0;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-			dev_err(&client->dev,
-				"Need I2C_FUNC_I2C functions\n");
-			return -ENODEV;
+		dev_err(&client->dev,
+			"Need I2C_FUNC_I2C functions\n");
+		return -ENODEV;
 	}
 
 	state = devm_kzalloc(&client->dev, sizeof(struct i2cState), GFP_KERNEL);
@@ -381,7 +381,7 @@ int si4703_init(void)
 	}
 
 	/* Allocate the array of devices */
-	si4703_devices = (struct si4703_dev *)kzalloc(number_of_devices * \
+	si4703_devices = kzalloc(number_of_devices *
 			sizeof(struct si4703_dev), GFP_KERNEL);
 
 	if (si4703_devices == NULL) {
@@ -391,24 +391,19 @@ int si4703_init(void)
 
 	res = i2c_add_driver(&si4703_driver);
 
-	if (0 != res) {
-		pr_err("si4703-i2c_add_driver: Driver registration failed,"
-				"module not inserted.\n");
+	if (res != 0)
 		return res;
-	}
 
 	for (i = 0; i < number_of_devices; ++i) {
-		res = si4703_construct_devices(&si4703_devices[i], i, i2ccharClass);
+		res = si4703_construct_devices(&si4703_devices[i],
+				i, i2ccharClass);
 		if (res) {
 			devices_to_destroy = i;
 			goto fail;
 		}
 	}
 
-	// Made it! device was initialized
-#if DEBUG_KERN
-	printk(KERN_INFO "device class %s created correctly\n", CLASS_NAME);
-#endif
+	pr_info("Device class %s created correctly\n", CLASS_NAME);
 
 	return 0;
 
@@ -422,10 +417,6 @@ void si4703_cleanup(void)
 
 	i2c_del_driver(&si4703_driver);
 	si4703_cleanup_module(number_of_devices);
-#if DEBUG_KERN
-	printk(KERN_INFO "\nExiting Si4703 driver!!\n");
-#endif
-	return;
 }
 
 
