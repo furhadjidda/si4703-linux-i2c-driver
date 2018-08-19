@@ -1,0 +1,178 @@
+furhad@furhad-Aspire-TC-780A:~/RaspberryPi/linux-latest-kernel$ grep -r -i 'si4703' .
+./linux/Documentation/media/v4l-drivers/si470x.rst:- Si4703: FM radio receiver, RDS Support
+./linux/.tmp_versions/si4703.mod:drivers/media/radio/si4703/si4703.ko
+./linux/.tmp_versions/si4703.mod:drivers/media/radio/si4703/si4703.o
+./linux/.config.old:CONFIG_RADIO_SI4703=m
+./linux/.config.old:CONFIG_I2C_SI4703=m
+./linux/modules.order:kernel/drivers/media/radio/si4703/si4703.ko
+./linux/drivers/media/radio/Kconfig:config RADIO_SI4703
+./linux/drivers/media/radio/Kconfig:	tristate "Silicon Labs Si4703 FM Radio with RDS Transmitter support"
+./linux/drivers/media/radio/Kconfig:source "drivers/media/radio/si4703/Kconfig"
+./linux/drivers/media/radio/si4703/Kconfig:config I2C_SI4703
+./linux/drivers/media/radio/si4703/Kconfig:	tristate "Silicon Labs Si4703 FM Radio Receiver support with I2C"
+./linux/drivers/media/radio/si4703/Kconfig:	depends on RADIO_SI4703
+./linux/drivers/media/radio/si4703/.si4703.mod.o.cmd:cmd_drivers/media/radio/si4703/si4703.mod.o := arm-linux-gnueabihf-gcc -Wp,-MD,drivers/media/radio/si4703/.si4703.mod.o.d  -nostdinc -isystem /home/furhad/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/../lib/gcc/arm-linux-gnueabihf/4.8.3/include -I./arch/arm/include -I./arch/arm/include/generated  -I./include -I./arch/arm/include/uapi -I./arch/arm/include/generated/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h -D__KERNEL__ -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -fshort-wchar -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -fno-omit-frame-pointer -mapcs -mno-sched-prolog -fno-ipa-sra -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -D__LINUX_ARM_ARCH__=7 -march=armv7-a -msoft-float -Uarm -fno-delete-null-pointer-checks -O2 -Wno-maybe-uninitialized --param=allow-store-data-races=0 -DCC_HAVE_ASM_GOTO -Wframe-larger-than=1024 -fno-stack-protector -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-var-tracking-assignments -pg -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes  -DKBUILD_BASENAME='"si4703.mod"'  -DKBUILD_MODNAME='"si4703"' -DMODULE  -c -o drivers/media/radio/si4703/si4703.mod.o drivers/media/radio/si4703/si4703.mod.c
+./linux/drivers/media/radio/si4703/.si4703.mod.o.cmd:source_drivers/media/radio/si4703/si4703.mod.o := drivers/media/radio/si4703/si4703.mod.c
+./linux/drivers/media/radio/si4703/.si4703.mod.o.cmd:deps_drivers/media/radio/si4703/si4703.mod.o := \
+./linux/drivers/media/radio/si4703/.si4703.mod.o.cmd:drivers/media/radio/si4703/si4703.mod.o: $(deps_drivers/media/radio/si4703/si4703.mod.o)
+./linux/drivers/media/radio/si4703/.si4703.mod.o.cmd:$(deps_drivers/media/radio/si4703/si4703.mod.o):
+Binary file ./linux/drivers/media/radio/si4703/si4703.o matches
+./linux/drivers/media/radio/si4703/si4703.c: * drivers/media/radio/si4703/si4703.c
+./linux/drivers/media/radio/si4703/si4703.c: * I2C client driver for Si4703
+./linux/drivers/media/radio/si4703/si4703.c:#include "si4703_include.h"
+./linux/drivers/media/radio/si4703/si4703.c:static struct si4703_dev *si4703_devices;
+./linux/drivers/media/radio/si4703/si4703.c:static int si4703_probe(struct i2c_client *client,
+./linux/drivers/media/radio/si4703/si4703.c:	dev_dbg(dev, "\nsi4703_probe called\n");
+./linux/drivers/media/radio/si4703/si4703.c:static int si4703_remove(struct i2c_client *client)
+./linux/drivers/media/radio/si4703/si4703.c:static const struct i2c_device_id si4703_dev_id[] = {
+./linux/drivers/media/radio/si4703/si4703.c:MODULE_DEVICE_TABLE(i2c, si4703_dev_id);
+./linux/drivers/media/radio/si4703/si4703.c:static struct i2c_driver si4703_driver = {
+./linux/drivers/media/radio/si4703/si4703.c:	.probe = si4703_probe,
+./linux/drivers/media/radio/si4703/si4703.c:	.remove = si4703_remove,
+./linux/drivers/media/radio/si4703/si4703.c:	.id_table = si4703_dev_id,
+./linux/drivers/media/radio/si4703/si4703.c:static long si4703_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+./linux/drivers/media/radio/si4703/si4703.c:static int si4703_open(struct inode *inode, struct file *filp)
+./linux/drivers/media/radio/si4703/si4703.c:	dev_info(&state->i2cClient->dev, "Si4703_open called\n");
+./linux/drivers/media/radio/si4703/si4703.c:static int  si4703_close(struct inode *inode, struct file *filp)
+./linux/drivers/media/radio/si4703/si4703.c:	dev_info(&state->i2cClient->dev, "Si4703_close called\n");
+./linux/drivers/media/radio/si4703/si4703.c:ssize_t si4703_read(struct file *file, char __user *buff,
+./linux/drivers/media/radio/si4703/si4703.c:	dev_info(&state->i2cClient->dev, "Si4703_read called\n");
+./linux/drivers/media/radio/si4703/si4703.c:ssize_t  si4703_write(struct file *file,
+./linux/drivers/media/radio/si4703/si4703.c:	dev_info(&state->i2cClient->dev, "Si4703_write called\n");
+./linux/drivers/media/radio/si4703/si4703.c:static const struct file_operations si4703_fops = {
+./linux/drivers/media/radio/si4703/si4703.c:	.unlocked_ioctl	= si4703_ioctl,
+./linux/drivers/media/radio/si4703/si4703.c:	.open		= si4703_open,
+./linux/drivers/media/radio/si4703/si4703.c:	.release	= si4703_close,
+./linux/drivers/media/radio/si4703/si4703.c:	.read		= si4703_read,
+./linux/drivers/media/radio/si4703/si4703.c:	.write		= si4703_write
+./linux/drivers/media/radio/si4703/si4703.c:static int si4703_construct_devices(struct si4703_dev *dev, int minor,
+./linux/drivers/media/radio/si4703/si4703.c:	cdev_init(&dev->cdev, &si4703_fops);
+./linux/drivers/media/radio/si4703/si4703.c:static void si4703_destroy_device(struct si4703_dev *dev, int minor,
+./linux/drivers/media/radio/si4703/si4703.c:static void si4703_cleanup_module(int devices_to_destroy)
+./linux/drivers/media/radio/si4703/si4703.c:	if (si4703_devices) {
+./linux/drivers/media/radio/si4703/si4703.c:			si4703_destroy_device(&si4703_devices[i], i,
+./linux/drivers/media/radio/si4703/si4703.c:		kfree(si4703_devices);
+./linux/drivers/media/radio/si4703/si4703.c:	/* [NB] si4703_cleanup_module is never called if alloc_chrdev_region()
+./linux/drivers/media/radio/si4703/si4703.c:int si4703_init(void)
+./linux/drivers/media/radio/si4703/si4703.c:	si4703_devices = kzalloc(number_of_devices *
+./linux/drivers/media/radio/si4703/si4703.c:			sizeof(struct si4703_dev), GFP_KERNEL);
+./linux/drivers/media/radio/si4703/si4703.c:	if (si4703_devices == NULL) {
+./linux/drivers/media/radio/si4703/si4703.c:	res = i2c_add_driver(&si4703_driver);
+./linux/drivers/media/radio/si4703/si4703.c:		res = si4703_construct_devices(&si4703_devices[i],
+./linux/drivers/media/radio/si4703/si4703.c:	si4703_cleanup_module(devices_to_destroy);
+./linux/drivers/media/radio/si4703/si4703.c:void si4703_cleanup(void)
+./linux/drivers/media/radio/si4703/si4703.c:	i2c_del_driver(&si4703_driver);
+./linux/drivers/media/radio/si4703/si4703.c:	si4703_cleanup_module(number_of_devices);
+./linux/drivers/media/radio/si4703/si4703.c:	//printk(KERN_INFO "\nExiting Si4703 driver!!\n");
+./linux/drivers/media/radio/si4703/si4703.c:module_init(si4703_init);
+./linux/drivers/media/radio/si4703/si4703.c:module_exit(si4703_cleanup);
+./linux/drivers/media/radio/si4703/si4703.c:MODULE_DESCRIPTION("SI4703 I2C client driver");
+./linux/drivers/media/radio/si4703/.built-in.o.cmd:cmd_drivers/media/radio/si4703/built-in.o :=  rm -f drivers/media/radio/si4703/built-in.o; arm-linux-gnueabihf-ar rcsD drivers/media/radio/si4703/built-in.o
+Binary file ./linux/drivers/media/radio/si4703/si4703.mod.o matches
+./linux/drivers/media/radio/si4703/si4703.mod.c:MODULE_ALIAS("i2c:si4703_driver");
+./linux/drivers/media/radio/si4703/.si4703.o.cmd:cmd_drivers/media/radio/si4703/si4703.o := arm-linux-gnueabihf-gcc -Wp,-MD,drivers/media/radio/si4703/.si4703.o.d  -nostdinc -isystem /home/furhad/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/../lib/gcc/arm-linux-gnueabihf/4.8.3/include -I./arch/arm/include -I./arch/arm/include/generated  -I./include -I./arch/arm/include/uapi -I./arch/arm/include/generated/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h -D__KERNEL__ -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -fshort-wchar -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -fno-PIE -fno-dwarf2-cfi-asm -fno-omit-frame-pointer -mapcs -mno-sched-prolog -fno-ipa-sra -mabi=aapcs-linux -mno-thumb-interwork -mfpu=vfp -funwind-tables -marm -D__LINUX_ARM_ARCH__=7 -march=armv7-a -msoft-float -Uarm -fno-delete-null-pointer-checks -O2 -Wno-maybe-uninitialized --param=allow-store-data-races=0 -DCC_HAVE_ASM_GOTO -Wframe-larger-than=1024 -fno-stack-protector -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-var-tracking-assignments -pg -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fno-merge-all-constants -fmerge-constants -fno-stack-check -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -Isound  -DMODULE  -DKBUILD_BASENAME='"si4703"'  -DKBUILD_MODNAME='"si4703"' -c -o drivers/media/radio/si4703/.tmp_si4703.o drivers/media/radio/si4703/si4703.c
+./linux/drivers/media/radio/si4703/.si4703.o.cmd:source_drivers/media/radio/si4703/si4703.o := drivers/media/radio/si4703/si4703.c
+./linux/drivers/media/radio/si4703/.si4703.o.cmd:deps_drivers/media/radio/si4703/si4703.o := \
+./linux/drivers/media/radio/si4703/.si4703.o.cmd:  drivers/media/radio/si4703/si4703_include.h \
+./linux/drivers/media/radio/si4703/.si4703.o.cmd:  drivers/media/radio/si4703/protocol_struct.h \
+./linux/drivers/media/radio/si4703/.si4703.o.cmd:drivers/media/radio/si4703/si4703.o: $(deps_drivers/media/radio/si4703/si4703.o)
+./linux/drivers/media/radio/si4703/.si4703.o.cmd:$(deps_drivers/media/radio/si4703/si4703.o):
+./linux/drivers/media/radio/si4703/Makefile:obj-$(CONFIG_I2C_SI4703) += si4703.o
+./linux/drivers/media/radio/si4703/si4703_include.h: * si4703_include.h
+./linux/drivers/media/radio/si4703/si4703_include.h:#ifndef CODE_SI4703_INCLUDE_H_
+./linux/drivers/media/radio/si4703/si4703_include.h:#define CODE_SI4703_INCLUDE_H_
+./linux/drivers/media/radio/si4703/si4703_include.h:#define DRIVER_NAME	"si4703_driver"
+./linux/drivers/media/radio/si4703/si4703_include.h:struct si4703_dev {
+./linux/drivers/media/radio/si4703/si4703_include.h:#endif /* CODE_SI4703_INCLUDE_H_ */
+Binary file ./linux/drivers/media/radio/si4703/si4703.ko matches
+./linux/drivers/media/radio/si4703/.project:	<name>si4703-kernel-mod</name>
+./linux/drivers/media/radio/si4703/.si4703.ko.cmd:cmd_drivers/media/radio/si4703/si4703.ko := arm-linux-gnueabihf-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o drivers/media/radio/si4703/si4703.ko drivers/media/radio/si4703/si4703.o drivers/media/radio/si4703/si4703.mod.o ;  true
+./linux/drivers/media/radio/modules.order:kernel/drivers/media/radio/si4703/si4703.ko
+./linux/drivers/media/radio/Makefile:obj-$(CONFIG_RADIO_SI4703) += si4703/si4703.o
+./linux/drivers/media/modules.order:kernel/drivers/media/radio/si4703/si4703.ko
+./linux/drivers/modules.order:kernel/drivers/media/radio/si4703/si4703.ko
+./linux/.config:CONFIG_RADIO_SI4703=m
+./linux/.config:CONFIG_I2C_SI4703=m
+./linux/include/generated/autoconf.h:#define CONFIG_RADIO_SI4703_MODULE 1
+./linux/include/generated/autoconf.h:#define CONFIG_I2C_SI4703_MODULE 1
+./linux/include/config/auto.conf.cmd:	drivers/media/radio/si4703/Kconfig \
+./linux/include/config/auto.conf:CONFIG_RADIO_SI4703=m
+./linux/include/config/auto.conf:CONFIG_I2C_SI4703=m
+./linux/include/config/tristate.conf:CONFIG_RADIO_SI4703=M
+./linux/include/config/tristate.conf:CONFIG_I2C_SI4703=M
+./linux/arch/arm64/configs/bcmrpi3_defconfig:CONFIG_I2C_SI4703=m
+./linux/arch/arm64/configs/bcmrpi3_defconfig:CONFIG_RADIO_SI4703=m
+./linux/arch/arm/configs/bcm2709_defconfig:CONFIG_RADIO_SI4703=m
+./linux/arch/arm/configs/bcm2709_defconfig:CONFIG_I2C_SI4703=m
+./linux/arch/arm/configs/bcmrpi_defconfig:CONFIG_RADIO_SI4703=m
+./linux/arch/arm/configs/bcmrpi_defconfig:CONFIG_I2C_SI4703=m
+furhad@furhad-Aspire-TC-780A:~/RaspberryPi/linux-latest-kernel$
+
+
+
+========================================================================================================================================================================
+
+
+
+/linux/drivers/media/radio/Kconfig:config RADIO_SI4703
+
+
+config RADIO_SI4703
+	tristate "Silicon Labs Si4703 FM Radio with RDS Transmitter support"
+	depends on I2C
+
+source "drivers/media/radio/si4703/Kconfig"
+See Folder si4703 copied on desktop for this
+
+
+
+
+./linux/.config:CONFIG_RADIO_SI4703=m
+./linux/.config:CONFIG_I2C_SI4703=m
+CONFIG_RADIO_SI4703=m
+CONFIG_I2C_SI4703=m
+
+./linux/include/config/auto.conf.cmd:	drivers/media/radio/si4703/Kconfig \
+
+
+	drivers/media/radio/si470x/Kconfig \
+	drivers/media/radio/si4703/Kconfig \
+
+./linux/include/config/auto.conf:CONFIG_RADIO_SI4703=m
+./linux/include/config/auto.conf:CONFIG_I2C_SI4703=m
+
+
+CONFIG_RADIO_SI4703=m
+CONFIG_I2C_SI4703=m
+
+
+./linux/arch/arm64/configs/bcmrpi3_defconfig:CONFIG_I2C_SI4703=m
+./linux/arch/arm64/configs/bcmrpi3_defconfig:CONFIG_RADIO_SI4703=m
+
+
+CONFIG_RADIO_SI4703=m
+CONFIG_I2C_SI4713=m
+CONFIG_I2C_SI4703=m
+
+./linux/arch/arm/configs/bcm2709_defconfig:CONFIG_RADIO_SI4703=m
+./linux/arch/arm/configs/bcm2709_defconfig:CONFIG_I2C_SI4703=m
+
+
+
+CONFIG_RADIO_SI4703=m
+CONFIG_I2C_SI4703=m
+
+
+./linux/arch/arm/configs/bcmrpi_defconfig:CONFIG_RADIO_SI4703=m
+./linux/arch/arm/configs/bcmrpi_defconfig:CONFIG_I2C_SI4703=m
+
+
+CONFIG_RADIO_SI4703=m
+CONFIG_I2C_SI4703=m
+CONFIG_I2C_SI4713=m
+CONFIG_RADIO_SI4703=m
+CONFIG_I2C_SI4703=m
+
+
+
+

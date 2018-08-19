@@ -1,0 +1,1 @@
+cmd_drivers/media/radio/si4703/si4703.ko := arm-linux-gnueabihf-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o drivers/media/radio/si4703/si4703.ko drivers/media/radio/si4703/si4703.o drivers/media/radio/si4703/si4703.mod.o ;  true
